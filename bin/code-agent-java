@@ -1,0 +1,15 @@
+#!/bin/bash
+set -e
+
+JAVA_HOME="${JAVA_HOME:-/c/Users/EDY/.jdks/openjdk-25.0.1}"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+JAR="$(cygpath -w "$SCRIPT_DIR/../code-agent-java-cli/target/code-agent-java-cli-0.0.1-SNAPSHOT.jar")"
+
+if [ -n "$JAVA_HOME" ]; then
+    JAVA="$JAVA_HOME/bin/java"
+else
+    JAVA="java"
+fi
+
+"$JAVA" -jar "$JAR" "$@"
