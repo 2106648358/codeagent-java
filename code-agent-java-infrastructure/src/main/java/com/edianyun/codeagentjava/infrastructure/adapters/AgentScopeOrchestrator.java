@@ -1,7 +1,6 @@
 package com.edianyun.codeagentjava.infrastructure.adapters;
 
 import com.edianyun.codeagentjava.domain.model.content.ContentFragment;
-import com.edianyun.codeagentjava.domain.model.content.ContentType;
 import com.edianyun.codeagentjava.domain.model.content.GenerationTask;
 import com.edianyun.codeagentjava.domain.model.message.Message;
 import com.edianyun.codeagentjava.domain.model.message.Prompt;
@@ -19,6 +18,9 @@ import io.agentscope.core.event.AgentEventType;
 import io.agentscope.core.event.TextBlockDeltaEvent;
 import io.agentscope.core.message.Msg;
 import io.agentscope.core.message.UserMessage;
+import io.agentscope.core.model.DashScopeChatModel;
+import io.agentscope.core.model.Model;
+import io.agentscope.core.model.OpenAIChatModel;
 import io.agentscope.harness.agent.HarnessAgent;
 import io.agentscope.harness.agent.memory.compaction.CompactionConfig;
 import reactor.core.publisher.Flux;
@@ -58,8 +60,18 @@ public class AgentScopeOrchestrator implements AgentOrchestrator, StreamingAgent
         return agent;
     }
 
+    /**
+     * 构建 AgentScope HarnessAgent。
+     * 通过编程式构建 Model 实例（而非字符串），将应用的 apiKey/baseUrl 配置
+     * 显式注入到 AgentScope 模型中，避免依赖 AgentScope ModelRegistry 的
+     * 内置工厂（后者只能从环境变量读取凭据，无法使用我们配置的 baseUrl）。
+     * <p>
+     * 这种编程式注入完全在 infrastructure 层完成，没有向 domain 层泄漏
+     * 任何 AgentScope 框架依赖，符合六边形架构的分层原则。
+     */
     private HarnessAgent buildAgent(CodeAgentProperties codeAgentProperties, LlmProperties llmProperties) {
-        String model = llmProperties.getModel();
+        String modelId = llmProperties.getModel();
+        Model model = createModel(modelId, llmProperties);
         Path workspace = Paths.get(codeAgentProperties.getAgent().getWorkspace()).toAbsolutePath().normalize();
         CodeAgentProperties.AgentProperties.CompactionProperties compaction = codeAgentProperties.getAgent().getCompaction();
         HarnessAgent.Builder builder = HarnessAgent.builder()
@@ -74,6 +86,53 @@ public class AgentScopeOrchestrator implements AgentOrchestrator, StreamingAgent
                     .build());
         }
         return builder.build();
+    }
+
+    /**
+     * 根据模型 ID 解析并构建 AgentScope Model 实例。
+     * <p>
+     * 使用 switch 而非 provider 注册模式的原因：
+     * - provider 种类少且稳定（openai、dashscope 两个），对应 AgentScope 的内置实现
+     * - 每个 provider 的构建逻辑各不相同（apiKey 来源、baseUrl 必要性、额外参数），
+     *   不适合统一抽象；强行引入工厂接口反而增加不必要的间接层
+     * - 如需新增 provider，直接追加 case 即可，修改范围限制在本类内部，
+     *   不影响上层调用者和 domain 层
+     */
+    private Model createModel(String modelId, LlmProperties llmProperties) {
+        int colonIndex = modelId.indexOf(':');
+        if (colonIndex <= 0) {
+            throw new IllegalArgumentException("Model ID must be in format '<provider>:<model>', got: " + modelId);
+        }
+        String provider = modelId.substring(0, colonIndex).toLowerCase();
+        String modelName = modelId.substring(colonIndex + 1);
+        switch (provider) {
+            case "openai":
+                String apiKey = llmProperties.getOpenai().getApiKey();
+                if (apiKey == null || apiKey.isBlank()) {
+                    throw new IllegalArgumentException(
+                            "OpenAI API key is not configured. Set codeagent.llm.openai.api-key in application-local.properties");
+                }
+                return OpenAIChatModel.builder()
+                        .apiKey(apiKey)
+                        .baseUrl(llmProperties.getOpenai().getBaseUrl())
+                        .modelName(modelName)
+                        .stream(true)
+                        .build();
+            case "dashscope":
+                String dashscopeApiKey = llmProperties.getDashscope().getApiKey();
+                if (dashscopeApiKey == null || dashscopeApiKey.isBlank()) {
+                    throw new IllegalArgumentException(
+                            "DashScope API key is not configured. Set codeagent.llm.dashscope.api-key in application-local.properties");
+                }
+                return DashScopeChatModel.builder()
+                        .apiKey(dashscopeApiKey)
+                        .modelName(modelName)
+                        .stream(true)
+                        .build();
+            default:
+                throw new IllegalArgumentException("Unsupported model provider: '" + provider
+                        + "'. Supported: openai, dashscope");
+        }
     }
 
     @Override
