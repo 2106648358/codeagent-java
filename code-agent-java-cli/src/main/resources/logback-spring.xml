@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Logback 日志配置（Spring Boot 自动发现 classpath:logback-spring.xml）。
+    策略：
+    - 默认日志级别 INFO，减少噪音
+    - AgentScope / JOOQ / Spring Shell 框架日志设为 WARN
+    - 业务日志（com.edianyun.codeagentjava）设为 DEBUG，便于排查问题
+    - 控制台输出使用彩色格式
+    - 文件输出按天滚动，保留 30 天历史
+-->
+<configuration>
+    <!-- 控制台输出：彩色 -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %highlight(%-5level) [%thread] %cyan(%logger{36}) - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- 文件输出：按天滚动 -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${user.home}/.codeagent/logs/codeagent.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${user.home}/.codeagent/logs/codeagent.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- 框架日志：降低噪音 -->
+    <logger name="org.springframework" level="WARN"/>
+    <logger name="org.springframework.shell" level="WARN"/>
+    <logger name="org.jooq" level="WARN"/>
+    <logger name="org.flywaydb" level="INFO"/>
+    <logger name="com.zaxxer.hikari" level="WARN"/>
+    <logger name="io.agentscope" level="WARN"/>
+
+    <!-- 业务日志 -->
+    <logger name="com.edianyun.codeagentjava" level="DEBUG"/>
+
+    <!-- 根日志 -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+</configuration>
