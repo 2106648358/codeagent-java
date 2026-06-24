@@ -35,9 +35,12 @@ import org.flywaydb.core.Flyway;
 import org.jooq.DSLContext;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 import javax.sql.DataSource;
 import java.io.File;
@@ -51,7 +54,18 @@ import java.io.File;
  * - 适配器（TelemetryCollector、LocalStorage、AgentScopeOrchestrator 等）
  * - 应用服务（ChatUseCase、GenerateUseCase、ExplainUseCase）
  */
+/**
+ * 基础设施 Spring 配置类，装配所有 Bean 到 Spring 上下文。
+ * 包括：
+ * - 领域服务（PromptBuilder、WorkspaceScanner 等）
+ * - 数据源与 JOOQ DSLContext（SQLite + PostgreSQL）
+ * - Flyway 数据库迁移（SQLite 与 PostgreSQL 独立管理）
+ * - 适配器（TelemetryCollector、LocalStorage、AgentScopeOrchestrator 等）
+ * - 应用服务（ChatUseCase、GenerateUseCase、ExplainUseCase）
+ * - 后台遥测同步调度（定时 + 阈值双重触发）
+ */
 @Configuration
+@EnableScheduling
 public class InfrastructureConfig {
 
     @Bean
@@ -119,6 +133,51 @@ public class InfrastructureConfig {
         return DSL.using(dataSource, SQLDialect.SQLITE);
     }
 
+    /**
+     * PostgreSQL 远程遥测数据源。
+     * 仅当 codeagent.telemetry.postgres.url 配置了非空值时启用，
+     * 否则 PostgreSQL 相关 Bean 不会被创建，CLI 仅在本地方案下运行。
+     */
+    @Bean
+    @ConditionalOnProperty(prefix = "codeagent.telemetry.postgres", name = "url", matchIfMissing = false)
+    public DataSource postgresDataSource(TelemetryProperties telemetryProperties) {
+        HikariConfig config = new HikariConfig();
+        config.setJdbcUrl(telemetryProperties.getPostgres().getUrl());
+        config.setUsername(telemetryProperties.getPostgres().getUser());
+        config.setPassword(telemetryProperties.getPostgres().getPassword());
+        config.setDriverClassName("org.postgresql.Driver");
+        config.setMaximumPoolSize(2);
+        config.setPoolName("codeagent-telemetry-pg");
+        return new HikariDataSource(config);
+    }
+
+    /**
+     * PostgreSQL Flyway 迁移实例。
+     * 与 SQLite Flyway 独立，使用 classpath:db/migration-pg 目录的迁移脚本。
+     * 仅在 postgresDataSource 存在时创建。
+     */
+    @Bean
+    @ConditionalOnProperty(prefix = "codeagent.telemetry.postgres", name = "url", matchIfMissing = false)
+    public Flyway postgresFlyway(DataSource postgresDataSource) {
+        Flyway flyway = Flyway.configure()
+                .dataSource(postgresDataSource)
+                .locations("classpath:db/migration-pg")
+                .load();
+        flyway.migrate();
+        return flyway;
+    }
+
+    /**
+     * PostgreSQL JOOQ DSLContext。
+     * 用于远程遥测的批量 upsert 操作，使用 POSTGRES 方言。
+     * 仅在 postgresDataSource 存在时创建。
+     */
+    @Bean
+    @ConditionalOnProperty(prefix = "codeagent.telemetry.postgres", name = "url", matchIfMissing = false)
+    public DSLContext postgresDSLContext(DataSource postgresDataSource, Flyway postgresFlyway) {
+        return DSL.using(postgresDataSource, SQLDialect.POSTGRES);
+    }
+
     @Bean
     public TelemetryCollector telemetryCollector(DSLContext dslContext) {
         return new SQLiteBufferedTelemetryCollector(dslContext);
@@ -129,9 +188,17 @@ public class InfrastructureConfig {
         return new JooqLocalStorage(dslContext);
     }
 
+    /**
+     * 远程同步服务 Bean。
+     * 使用 ObjectProvider 安全获取可选的 PostgreSQL DSLContext：
+     * - 当 PostgreSQL 连接信息已配置且 postgresDSLContext Bean 存在时，注入实例进行远程同步
+     * - 当未配置时，getIfAvailable() 返回 null，同步操作静默跳过
+     */
     @Bean
-    public RemoteSyncService remoteSyncService() {
-        return new PostgreSqlRemoteSyncService();
+    public RemoteSyncService remoteSyncService(DSLContext dslContext,
+                                                ObjectProvider<DSLContext> postgresDSLContextProvider) {
+        DSLContext postgresDSLContext = postgresDSLContextProvider.getIfAvailable();
+        return new PostgreSqlRemoteSyncService(dslContext, postgresDSLContext);
     }
 
     @Lazy

@@ -1,6 +1,7 @@
 package com.edianyun.codeagentjava.application.service;
 
 import com.edianyun.codeagentjava.application.dto.ChatRequest;
+import lombok.extern.slf4j.Slf4j;
 import com.edianyun.codeagentjava.application.dto.ChatResponse;
 import com.edianyun.codeagentjava.application.port.ChatUseCase;
 import com.edianyun.codeagentjava.domain.model.identity.UserIdentity;
@@ -23,6 +24,7 @@ import java.time.Instant;
  * 协调 LocalStorage（加载/保存会话）、AgentOrchestrator（LLM 调用）
  * 和 TelemetryCollector（指标采集）完成一次对话流程。
  */
+@Slf4j
 public class ChatService implements ChatUseCase {
 
     private final AgentOrchestrator agentOrchestrator;
@@ -44,6 +46,7 @@ public class ChatService implements ChatUseCase {
     @Override
     public ChatResponse chat(ChatRequest request) {
         long start = System.currentTimeMillis();
+        log.info("Chat request: sessionId={}, prompt={}", request.sessionId(), request.prompt());
         SessionContext ctx = prepareSession(request);
 
         Message userMessage = Message.user(request.prompt());
@@ -55,6 +58,7 @@ public class ChatService implements ChatUseCase {
         localStorage.saveSession(ctx.session);
 
         recordTelemetry(ctx, start, true, null);
+        log.info("Chat completed: sessionId={}, durationMs={}", ctx.sessionId.value(), System.currentTimeMillis() - start);
 
         return new ChatResponse(ctx.sessionId.value(), assistantMessage.content());
     }

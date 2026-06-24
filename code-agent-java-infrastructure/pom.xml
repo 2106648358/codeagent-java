@@ -14,6 +14,11 @@
     <dependencies>
         <dependency>
             <groupId>com.edianyun</groupId>
+            <artifactId>code-agent-java-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.edianyun</groupId>
             <artifactId>code-agent-java-core</artifactId>
             <version>${project.version}</version>
         </dependency>
@@ -78,6 +83,27 @@
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
         </dependency>
+        <!-- 测试依赖 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.wiremock</groupId>
+            <artifactId>wiremock-standalone</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -93,6 +119,45 @@
                         <goals>
                             <goal>generate</goal>
                         </goals>
+                    </execution>
+                    <!-- PostgreSQL 遥测表 JOOQ 代码生成 -->
+                    <execution>
+                        <id>generate-postgres</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <configuration>
+                            <generator>
+                                <database>
+                                    <name>org.jooq.meta.extensions.ddl.DDLDatabase</name>
+                                    <properties>
+                                        <property>
+                                            <key>scripts</key>
+                                            <value>src/main/resources/db/migration-pg</value>
+                                        </property>
+                                        <property>
+                                            <key>sort</key>
+                                            <value>flyway</value>
+                                        </property>
+                                        <property>
+                                            <key>defaultNameCase</key>
+                                            <value>as_is</value>
+                                        </property>
+                                    </properties>
+                                    <includes>.*</includes>
+                                </database>
+                                <target>
+                                    <packageName>com.edianyun.codeagentjava.infrastructure.db.jooq.pg</packageName>
+                                    <directory>target/generated-sources/jooq-pg</directory>
+                                </target>
+                                <generate>
+                                    <records>true</records>
+                                    <pojos>false</pojos>
+                                    <daos>false</daos>
+                                </generate>
+                            </generator>
+                        </configuration>
                     </execution>
                 </executions>
                 <configuration>

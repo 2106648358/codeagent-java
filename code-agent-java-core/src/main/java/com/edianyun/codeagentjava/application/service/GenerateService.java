@@ -1,6 +1,7 @@
 package com.edianyun.codeagentjava.application.service;
 
 import com.edianyun.codeagentjava.application.dto.GenerateRequest;
+import lombok.extern.slf4j.Slf4j;
 import com.edianyun.codeagentjava.application.dto.GenerateResponse;
 import com.edianyun.codeagentjava.application.port.GenerateUseCase;
 import com.edianyun.codeagentjava.domain.model.content.ContentFragment;
@@ -34,6 +35,7 @@ import java.util.stream.Collectors;
  * 协调工作区扫描、LLM 调用、内容提取和持久化，
  * 完成 "根据需求生成文件内容" 的完整流程。
  */
+@Slf4j
 public class GenerateService implements GenerateUseCase {
 
     private final AgentOrchestrator agentOrchestrator;
@@ -60,6 +62,7 @@ public class GenerateService implements GenerateUseCase {
     @Override
     public GenerateResponse generate(GenerateRequest request) {
         long start = System.currentTimeMillis();
+        log.info("Generate request: requirements={}, contentType={}", request.requirements(), request.contentType());
         GenerateContext ctx = prepareContext(request);
 
         GenerationTask task = new GenerationTask(UUID.randomUUID(), ctx.sessionId, request.requirements(), ctx.contentType);
@@ -69,6 +72,7 @@ public class GenerateService implements GenerateUseCase {
         localStorage.saveGenerationTask(task);
 
         recordTelemetry(ctx, start, true, null, task.fragments().size());
+        log.info("Generate completed: taskId={}, fragments={}, durationMs={}", task.id(), task.fragments().size(), System.currentTimeMillis() - start);
 
         return new GenerateResponse(task.id().toString(), ctx.sessionId.value(), task.fragments());
     }

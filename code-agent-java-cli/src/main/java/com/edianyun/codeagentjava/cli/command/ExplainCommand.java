@@ -5,6 +5,7 @@ import com.edianyun.codeagentjava.application.dto.ExplainResponse;
 import com.edianyun.codeagentjava.application.port.ExplainUseCase;
 import com.edianyun.codeagentjava.cli.output.TerminalRenderer;
 import com.edianyun.codeagentjava.domain.repository.StreamingAgentOrchestrator;
+import com.edianyun.codeagentjava.common.util.StringUtils;
 import com.edianyun.codeagentjava.infrastructure.config.CodeAgentProperties;
 import org.springframework.shell.core.command.annotation.Command;
 import org.springframework.shell.core.command.annotation.Option;
@@ -34,7 +35,7 @@ public class ExplainCommand {
             @Option(longName = "session", shortName = 's', defaultValue = "") String sessionId,
             @Option(longName = "user", shortName = 'u', defaultValue = "") String userId) {
 
-        ExplainRequest request = new ExplainRequest(blankToNull(sessionId), blankToNull(userId), target, scope);
+        ExplainRequest request = new ExplainRequest(StringUtils.blankToNull(sessionId), StringUtils.blankToNull(userId), target, scope);
 
         ExplainResponse response;
         if (codeAgentProperties.getCli().isStreamOutput()) {
@@ -61,7 +62,4 @@ public class ExplainCommand {
         return codeAgentProperties.getCli().isStreamOutput() ? "" : response.explanation();
     }
 
-    private String blankToNull(String value) {
-        return value == null || value.isBlank() ? null : value;
-    }
 }

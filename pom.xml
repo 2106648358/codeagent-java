@@ -16,6 +16,7 @@
     <description>AI coding assistant CLI</description>
 
     <modules>
+        <module>code-agent-java-common</module>
         <module>code-agent-java-core</module>
         <module>code-agent-java-infrastructure</module>
         <module>code-agent-java-cli</module>
@@ -105,5 +106,26 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <!-- JDK 25 下 Lombok 注解处理器需显式声明 annotationProcessorPaths -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <configuration>
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                                <version>${lombok.version}</version>
+                            </path>
+                        </annotationProcessorPaths>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
 
 </project>

@@ -1,6 +1,7 @@
 package com.edianyun.codeagentjava.application.service;
 
 import com.edianyun.codeagentjava.application.dto.ExplainRequest;
+import lombok.extern.slf4j.Slf4j;
 import com.edianyun.codeagentjava.application.dto.ExplainResponse;
 import com.edianyun.codeagentjava.application.port.ExplainUseCase;
 import com.edianyun.codeagentjava.domain.model.identity.UserIdentity;
@@ -25,6 +26,7 @@ import java.time.Instant;
  * 扫描工作区获取上下文，调用 LLM 对指定目标进行解释，
  * 并记录遥测事件。
  */
+@Slf4j
 public class ExplainService implements ExplainUseCase {
 
     private final AgentOrchestrator agentOrchestrator;
@@ -46,11 +48,13 @@ public class ExplainService implements ExplainUseCase {
     @Override
     public ExplainResponse explain(ExplainRequest request) {
         long start = System.currentTimeMillis();
+        log.info("Explain request: target={}, scope={}", request.target(), request.scope());
         ExplainContext ctx = prepareContext(request);
 
         String explanation = agentOrchestrator.explain(request.target(), ctx.context);
 
         recordTelemetry(ctx, start, true, null);
+        log.info("Explain completed: target={}, durationMs={}", request.target(), System.currentTimeMillis() - start);
 
         return new ExplainResponse(request.target(), explanation);
     }

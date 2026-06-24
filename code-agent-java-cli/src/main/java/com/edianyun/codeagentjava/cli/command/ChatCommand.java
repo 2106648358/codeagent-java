@@ -5,6 +5,7 @@ import com.edianyun.codeagentjava.application.dto.ChatResponse;
 import com.edianyun.codeagentjava.application.port.ChatUseCase;
 import com.edianyun.codeagentjava.cli.output.TerminalRenderer;
 import com.edianyun.codeagentjava.domain.repository.StreamingAgentOrchestrator;
+import com.edianyun.codeagentjava.common.util.StringUtils;
 import com.edianyun.codeagentjava.infrastructure.config.CodeAgentProperties;
 import org.springframework.shell.core.command.annotation.Command;
 import org.springframework.shell.core.command.annotation.Option;
@@ -31,7 +32,7 @@ public class ChatCommand {
     public String chat(@Option(longName = "prompt", shortName = 'p', required = true) String prompt,
                         @Option(longName = "session", shortName = 's', defaultValue = "") String sessionId,
                         @Option(longName = "user", shortName = 'u', defaultValue = "") String userId) {
-        ChatRequest request = new ChatRequest(blankToNull(sessionId), blankToNull(userId), prompt);
+        ChatRequest request = new ChatRequest(StringUtils.blankToNull(sessionId), StringUtils.blankToNull(userId), prompt);
         if (codeAgentProperties.getCli().isStreamOutput()) {
             chatUseCase.chatStream(request, new StreamingAgentOrchestrator.StreamConsumer() {
                 @Override
@@ -57,7 +58,4 @@ public class ChatCommand {
         }
     }
 
-    private String blankToNull(String value) {
-        return value == null || value.isBlank() ? null : value;
-    }
 }

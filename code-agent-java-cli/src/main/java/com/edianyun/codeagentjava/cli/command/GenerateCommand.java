@@ -5,6 +5,7 @@ import com.edianyun.codeagentjava.application.dto.GenerateResponse;
 import com.edianyun.codeagentjava.application.port.GenerateUseCase;
 import com.edianyun.codeagentjava.cli.output.TerminalRenderer;
 import com.edianyun.codeagentjava.domain.model.content.ContentFragment;
+import com.edianyun.codeagentjava.common.util.StringUtils;
 import com.edianyun.codeagentjava.domain.model.content.ContentType;
 import com.edianyun.codeagentjava.domain.model.content.FileChange;
 import com.edianyun.codeagentjava.domain.model.workspace.RelativePath;
@@ -52,7 +53,7 @@ public class GenerateCommand {
             @Option(longName = "user", shortName = 'u', defaultValue = "") String userId) {
 
         List<String> files = targetFiles == null || targetFiles.length == 0 ? List.of() : Arrays.asList(targetFiles);
-        GenerateRequest request = new GenerateRequest(blankToNull(sessionId), blankToNull(userId), requirements, contentType, files);
+        GenerateRequest request = new GenerateRequest(StringUtils.blankToNull(sessionId), StringUtils.blankToNull(userId), requirements, contentType, files);
 
         GenerateResponse response;
         if (codeAgentProperties.getCli().isStreamOutput()) {
@@ -114,7 +115,4 @@ public class GenerateCommand {
         }
     }
 
-    private String blankToNull(String value) {
-        return value == null || value.isBlank() ? null : value;
-    }
 }

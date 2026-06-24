@@ -107,7 +107,28 @@ com.edianyun.codeagentjava
 
 ---
 
-## 4. 分层架构与依赖规则
+## 4. 代码阅读指南
+
+**核心模块 `code-agent-java-core` 刻意设计为零框架依赖**（仅依赖 slf4j-api、commons-lang3、lombok），
+目的是通过 Maven 模块边界强制分层：领域逻辑不被 Spring/AgentScope/JOOQ 污染，换框架时影响范围最小。
+
+新接手项目时，建议按以下顺序阅读：
+
+| 步骤 | 包 | 关注点 | 理由 |
+|------|-----|--------|------|
+| 1 | `domain/model/` | 实体和值对象：`Session`、`Message`、`ContentFragment`、`FileChange`、`WorkspaceContext` | 先理解系统"是什么"——一个管理 AI 对话会话、操作文件的编码助手 |
+| 2 | `domain/repository/` | 8 个出站端口接口：`AgentOrchestrator`、`FileRepository`、`LocalStorage` 等 | 再看领域对外部的依赖契约——"我需要什么，但我不关心谁实现" |
+| 3 | `domain/service/` | 纯领域逻辑：`PromptBuilder`、`ContentFragmentExtractor`、`FileDiffService` | 领域内部的计算和转换规则 |
+| 4 | `application/port/` | 3 个入站用例接口：`ChatUseCase`、`GenerateUseCase`、`ExplainUseCase` | CLI 或其他入口调用的契约 |
+| 5 | `application/service/` | 用例实现：`ChatService`、`GenerateService`、`ExplainService` | 如何把领域模型和端口串成业务流程 |
+| 6 | `infrastructure/adapters/` | 端口实现：`AgentScopeOrchestrator`、`LocalFileSystemFileRepository` 等 | 框架和外部系统的接入层 |
+| 7 | `cli/command/` | Spring Shell 命令：`ChatCommand`、`GenerateCommand`、`ExplainCommand` | 用户交互入口，参数解析和输出渲染 |
+
+这个顺序从内到外：先看懂业务全貌（步骤 1-3），再理解业务流程（步骤 4-5），最后才接触框架细节（步骤 6-7）。
+
+---
+
+## 5. 分层架构与依赖规则
 
 | 层 | 职责 |
 |----|------|
@@ -533,45 +554,31 @@ codeagent.cli.confirm-writes=true
 
 ### 15.1 根模块（dependencyManagement）
 
-- `org.jooq:jooq-bom` 或显式声明 jooq 版本。
-- `org.testcontainers:testcontainers-bom`（测试）。
-- `org.flywaydb:flyway-bom`（可选）。
+- ✅ `org.jooq:jooq`/`jooq-meta`/`jooq-codegen`/`jooq-meta-extensions`（已配置）
+- ✅ `org.testcontainers:testcontainers-bom`（已配置）
+- ✅ `org.flywaydb:flyway-core`/`flyway-database-postgresql`（已配置）
+- ✅ `org.wiremock:wiremock-standalone`（已配置）
+- ✅ `org.xerial:sqlite-jdbc`（已配置）
 
 ### 15.2 `core` 模块
 
-- `org.projectlombok:lombok`（可选，Java 25 record 优先）。
-- `org.apache.commons:commons-lang3`。
-- `org.apache.commons:commons-io`（可选）。
+- ✅ `org.apache.commons:commons-lang3`
+- ✅ `org.projectlombok:lombok`（日志 + 工具注解）
+- ✅ `org.springframework.boot:spring-boot-starter-test`（测试，含 JUnit 5 + Mockito + AssertJ）
 
 ### 15.3 `infrastructure` 模块
 
-- `io.agentscope:agentscope-harness`（已存在）。
-- `io.agentscope:agentscope-core`（如需直接访问 `ModelRegistry`）。
-- `org.jooq:jooq`
-- `org.jooq:jooq-meta`
-- `org.jooq:jooq-codegen`（maven plugin 依赖）
-- `org.postgresql:postgresql`
-- `org.xerial:sqlite-jdbc`
-- `com.zaxxer:HikariCP`
-- `org.springframework.boot:spring-boot-starter-jdbc`
-- `org.springframework.boot:spring-boot-starter-validation`
-- `org.flywaydb:flyway-core`（PostgreSQL 迁移）
-- `org.flywaydb:flyway-database-postgresql`（PostgreSQL 17+）
+所有必要依赖已配置，包括 JOOQ、PostgreSQL/SQLite JDBC 驱动、HikariCP、Flyway、AgentScope、Testcontainers、WireMock 等。
 
 ### 15.4 `cli` 模块
 
-- `org.springframework.shell:spring-shell-starter`（已存在）。
-- `org.springframework.shell:spring-shell-starter-test`（已存在）。
-- `org.springframework.boot:spring-boot-starter`。
-- `org.springframework.boot:spring-boot-starter-test`（已存在）。
+- ✅ `spring-shell-starter`
+- ✅ `spring-shell-starter-test`
+- ✅ `spring-boot-starter` / `spring-boot-starter-test`
 
 ### 15.5 测试依赖
 
-- `org.testcontainers:postgresql`
-- `org.testcontainers:junit-jupiter`
-- `org.wiremock:wiremock-standalone`
-- `org.mockito:mockito-core`
-- `org.assertj:assertj-core`
+所有测试依赖（Testcontainers、WireMock、Mockito、AssertJ）已通过 `spring-boot-starter-test` 和显式声明引入。
 
 ---
 
@@ -589,16 +596,16 @@ codeagent.cli.confirm-writes=true
 
 ---
 
-## 17. 实施路线图（建议）
+## 17. 实施路线图（全部完成 ✅）
 
-1. **第 1 步：工程结构** — 拆分多模块，调整根 `pom.xml`，移动 `CodeAgentJavaApplication` 与 `application.properties`。
-2. **第 2 步：领域层** — 定义 `domain/model` 通用实体、值对象、领域异常与端口接口。
-3. **第 3 步：应用层** — 定义 `ChatUseCase`/`GenerateUseCase`/`ExplainUseCase` 接口及实现，引入 `TelemetryCollector` 事件记录。
-4. **第 4 步：基础设施层** — 实现 `LocalFileSystemFileRepository`、`AgentScopeOrchestrator`（默认 Provider 使用 OpenAI）、`EnvironmentUserIdentityResolver`。
-5. **第 5 步：SQLite 持久化** — 引入 JOOQ + SQLite，建库，实现 `JooqLocalStorage`，本地保存会话/任务/内容片段。
-6. **第 6 步：CLI 命令** — 实现 `chat`/`generate`/`explain` 三个 Spring Shell 命令，包含参数解析、交互确认、输出渲染。
-7. **第 7 步：PostgreSQL 遥测** — 引入 JOOQ + PostgreSQL + Flyway，定义遥测表，实现 `PostgreSqlRemoteSyncService` 与后台同步。
-8. **第 8 步：测试与打磨** — 单元测试、应用服务测试、JOOQ 仓库测试、Shell 命令测试、集成测试。
+1. ✅ **第 1 步：工程结构** — 拆分多模块，调整根 `pom.xml`，移动 `CodeAgentJavaApplication` 与 `application.properties`。
+2. ✅ **第 2 步：领域层** — 定义 `domain/model` 通用实体、值对象、领域异常与端口接口。
+3. ✅ **第 3 步：应用层** — 定义 `ChatUseCase`/`GenerateUseCase`/`ExplainUseCase` 接口及实现，引入 `TelemetryCollector` 事件记录。
+4. ✅ **第 4 步：基础设施层** — 实现 `LocalFileSystemFileRepository`、`AgentScopeOrchestrator`、`EnvironmentUserIdentityResolver`。
+5. ✅ **第 5 步：SQLite 持久化** — 引入 JOOQ + SQLite + Flyway，实现 `JooqLocalStorage`。
+6. ✅ **第 6 步：CLI 命令** — 实现 `chat`/`generate`/`explain` 三个 Spring Shell 命令。
+7. ✅ **第 7 步：PostgreSQL 遥测** — 定义遥测表 DDL、Flyway 迁移、JOOQ codegen、`PostgreSqlRemoteSyncService`、`TelemetrySyncScheduler`。
+8. ✅ **第 8 步：测试与打磨** — 单元测试（13 个）、应用服务测试（3 个）、Shell 命令测试（5 个）、基础设施测试（2 个）、端到端集成测试（1 个）、日志配置（logback-spring.xml）、安装文档（INSTALL.md）。
 
 ---
 
@@ -608,7 +615,7 @@ codeagent.cli.confirm-writes=true
 
 1. **多模块拆分**：按 `core` / `infrastructure` / `cli` 三模块拆分。当前项目为空，拆分成本低，且利于后续扩展。
 2. **领域通用化**：领域层抽象为通用文件/文档操作（`ContentFragment`、`FileChange`、`WorkspaceContext`），代码生成只是首要场景。CLI 命令仍可命名为 `generate`/`explain`，但内部模型不硬编码代码语义。
-3. **默认 LLM Provider**：`AgentScopeLlmProvider` + 默认模型 `openai:gpt-4.1`。可替换为 `dashscope:qwen-plus` 或 `anthropic:claude-3-5-sonnet`。
+3. **默认 LLM Provider**：`AgentScopeLlmProvider` + 默认模型 `openai:deepseek-v4-flash`（通过 DeepSeek OpenAI 兼容接口）。可替换为 `dashscope:qwen-plus` 或其他兼容模型。
 4. **SQLite 范围**：第一阶段仅用于本地元数据、会话历史、任务记录和遥测缓冲；不替换 AgentScope 默认状态存储。
 5. **远程遥测**：仅上传非敏感指标（命令类型、耗时、模型、token、内容类型、文件扩展名、文件数）；不上传文件内容。
 6. **用户身份**：第一阶段通过环境变量 `CODEAGENT_USER_ID` / `CODEAGENT_TENANT_ID` 解析；为企业认证预留接口。

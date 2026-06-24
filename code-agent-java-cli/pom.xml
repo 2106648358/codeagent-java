@@ -14,6 +14,11 @@
     <dependencies>
         <dependency>
             <groupId>com.edianyun</groupId>
+            <artifactId>code-agent-java-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.edianyun</groupId>
             <artifactId>code-agent-java-core</artifactId>
             <version>${project.version}</version>
         </dependency>
