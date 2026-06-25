@@ -36,7 +36,7 @@ class DefaultWorkspaceScannerTest {
     void shouldInferPrimaryContentType() {
         var ctx = scanner.scan(java.nio.file.Path.of("."), null);
 
-        assertThat(ctx.primaryType()).isNotNull();
+        assertThat(ctx.primaryContentType()).isNotNull();
         // 当前目录包含 .java 文件，主要类型应为 CODE
     }
 

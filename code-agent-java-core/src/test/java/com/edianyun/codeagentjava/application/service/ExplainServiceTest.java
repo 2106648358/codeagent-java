@@ -53,7 +53,7 @@ class ExplainServiceTest {
     @Test
     void shouldExplainTargetAndReturnResult() {
         when(userIdentityResolver.resolve()).thenReturn(new UserIdentity(
-                UserId.anonymous(), TenantId.defaultTenant()));
+                UserId.anonymous(), TenantId.defaultTenant(), "test-machine"));
         when(fileRepository.scan(any(), any())).thenReturn(
                 new WorkspaceContext(java.nio.file.Path.of("."), List.of(), List.of(),
                         com.edianyun.codeagentjava.domain.model.content.ContentType.CODE, null));
@@ -71,7 +71,7 @@ class ExplainServiceTest {
     @Test
     void shouldScanWorkspaceForContext() {
         when(userIdentityResolver.resolve()).thenReturn(new UserIdentity(
-                UserId.anonymous(), TenantId.defaultTenant()));
+                UserId.anonymous(), TenantId.defaultTenant(), "test-machine"));
         when(fileRepository.scan(any(), any())).thenReturn(
                 new WorkspaceContext(java.nio.file.Path.of("."), List.of(), List.of(),
                         com.edianyun.codeagentjava.domain.model.content.ContentType.CODE, null));
@@ -85,7 +85,7 @@ class ExplainServiceTest {
     @Test
     void shouldRecordTelemetryOnSuccess() {
         when(userIdentityResolver.resolve()).thenReturn(new UserIdentity(
-                UserId.anonymous(), TenantId.defaultTenant()));
+                UserId.anonymous(), TenantId.defaultTenant(), "test-machine"));
         when(fileRepository.scan(any(), any())).thenReturn(
                 new WorkspaceContext(java.nio.file.Path.of("."), List.of(), List.of(),
                         com.edianyun.codeagentjava.domain.model.content.ContentType.CODE, null));

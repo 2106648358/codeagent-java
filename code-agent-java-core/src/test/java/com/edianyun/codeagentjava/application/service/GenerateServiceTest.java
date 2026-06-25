@@ -64,7 +64,7 @@ class GenerateServiceTest {
     @Test
     void shouldGenerateContentAndReturnFragments() {
         when(userIdentityResolver.resolve()).thenReturn(new UserIdentity(
-                UserId.anonymous(), TenantId.defaultTenant()));
+                UserId.anonymous(), TenantId.defaultTenant(), "test-machine"));
         when(fileRepository.scan(any(), any())).thenReturn(
                 new WorkspaceContext(java.nio.file.Path.of("."), List.of(), List.of(), ContentType.CODE, null));
         when(agentOrchestrator.generate(any(), any())).thenAnswer(invocation -> {
@@ -86,7 +86,7 @@ class GenerateServiceTest {
     @Test
     void shouldScanWorkspaceBeforeGeneration() {
         when(userIdentityResolver.resolve()).thenReturn(new UserIdentity(
-                UserId.anonymous(), TenantId.defaultTenant()));
+                UserId.anonymous(), TenantId.defaultTenant(), "test-machine"));
         when(fileRepository.scan(any(), any())).thenReturn(
                 new WorkspaceContext(java.nio.file.Path.of("."), List.of(), List.of(), ContentType.CODE, null));
         when(agentOrchestrator.generate(any(), any())).thenAnswer(invocation -> {
@@ -103,7 +103,7 @@ class GenerateServiceTest {
     @Test
     void shouldReturnGeneratedTaskId() {
         when(userIdentityResolver.resolve()).thenReturn(new UserIdentity(
-                UserId.anonymous(), TenantId.defaultTenant()));
+                UserId.anonymous(), TenantId.defaultTenant(), "test-machine"));
         when(fileRepository.scan(any(), any())).thenReturn(
                 new WorkspaceContext(java.nio.file.Path.of("."), List.of(), List.of(), ContentType.CODE, null));
         when(agentOrchestrator.generate(any(), any())).thenAnswer(invocation -> {

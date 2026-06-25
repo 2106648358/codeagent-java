@@ -8,23 +8,28 @@ import com.edianyun.codeagentjava.domain.model.workspace.RelativePath;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.ApplicationContext;
-import org.springframework.shell.core.command.Shell;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.shell.core.command.CommandParser;
+import org.springframework.shell.core.command.CommandRegistry;
+import org.springframework.shell.test.ShellTestClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
 
 /**
  * 端到端 CLI 集成测试。
- * 启动完整 Spring Shell 上下文，使用 MockBean 替换所有外部端口，
+ * 启动完整 Spring Shell 上下文，使用 MockMockitoBean 替换所有外部端口，
  * 验证 chat / generate / explain 三条命令的完整执行流程。
  * <p>
  * 测试策略：
- * - 使用 @MockBean 替换所有 UseCase 和外部依赖
+ * - 使用 @TestConfiguration 创建 Mockito mock bean 替换所有 UseCase 和外部依赖
  * - 不需要真实 LLM / 数据库 / 文件系统
- * - Shell.evaluate() 模拟用户在终端输入命令
+ * - ShellTestClient.sendCommand() 模拟用户在终端输入命令
  */
 @SpringBootTest
 class CliIntegrationTest {
@@ -33,16 +38,42 @@ class CliIntegrationTest {
     private ApplicationContext context;
 
     @Autowired
-    private Shell shell;
+    private ShellTestClient shellTestClient;
 
-    @MockBean
+    @Autowired
     private ChatUseCase chatUseCase;
 
-    @MockBean
+    @Autowired
     private GenerateUseCase generateUseCase;
 
-    @MockBean
+    @Autowired
     private ExplainUseCase explainUseCase;
+
+    @TestConfiguration
+    static class TestConfig {
+        @Bean
+        @Primary
+        ChatUseCase chatUseCase() {
+            return mock(ChatUseCase.class);
+        }
+
+        @Bean
+        @Primary
+        GenerateUseCase generateUseCase() {
+            return mock(GenerateUseCase.class);
+        }
+
+        @Bean
+        @Primary
+        ExplainUseCase explainUseCase() {
+            return mock(ExplainUseCase.class);
+        }
+
+        @Bean
+        ShellTestClient shellTestClient(CommandParser commandParser, CommandRegistry commandRegistry) {
+            return new ShellTestClient(commandParser, commandRegistry);
+        }
+    }
 
     // ---- 上下文启动验证 ----
 
@@ -57,19 +88,19 @@ class CliIntegrationTest {
     // ---- Chat 流程 ----
 
     @Test
-    void shouldExecuteChatCommandSuccessfully() {
+    void shouldExecuteChatCommandSuccessfully() throws Exception {
         when(chatUseCase.chat(any())).thenReturn(
                 new com.edianyun.codeagentjava.application.dto.ChatResponse("session-1", "Hello from AI"));
 
-        Object result = shell.evaluate(() -> "chat --prompt 'What is Java?'");
+        var screen = shellTestClient.sendCommand("chat --prompt 'What is Java?'");
 
-        assertThat(result).isNotNull();
+        assertThat(screen).isNotNull();
     }
 
     // ---- Generate 流程 ----
 
     @Test
-    void shouldExecuteGenerateCommandSuccessfully() {
+    void shouldExecuteGenerateCommandSuccessfully() throws Exception {
         when(generateUseCase.generate(any())).thenReturn(
                 new com.edianyun.codeagentjava.application.dto.GenerateResponse("task-1", "s1",
                         java.util.List.of(
@@ -78,28 +109,28 @@ class CliIntegrationTest {
                                         "public class Hello {}",
                                         ContentType.CODE))));
 
-        Object result = shell.evaluate(() -> "generate --requirements 'Create a HelloWorld' --yes");
+        var screen = shellTestClient.sendCommand("generate --requirements 'Create a HelloWorld' --yes");
 
-        assertThat(result).isNotNull();
+        assertThat(screen).isNotNull();
     }
 
     // ---- Explain 流程 ----
 
     @Test
-    void shouldExecuteExplainCommandSuccessfully() {
+    void shouldExecuteExplainCommandSuccessfully() throws Exception {
         when(explainUseCase.explain(any())).thenReturn(
                 new com.edianyun.codeagentjava.application.dto.ExplainResponse("pom.xml",
                         "This file defines the Maven build configuration."));
 
-        Object result = shell.evaluate(() -> "explain --target pom.xml");
+        var screen = shellTestClient.sendCommand("explain --target pom.xml");
 
-        assertThat(result).isNotNull();
+        assertThat(screen).isNotNull();
     }
 
     // ---- 组合流程 ----
 
     @Test
-    void shouldNavigateChatToGenerateToExplain() {
+    void shouldNavigateChatToGenerateToExplain() throws Exception {
         when(chatUseCase.chat(any())).thenReturn(
                 new com.edianyun.codeagentjava.application.dto.ChatResponse("s-multi", "Sure, I can help"));
         when(generateUseCase.generate(any())).thenReturn(
@@ -108,9 +139,9 @@ class CliIntegrationTest {
                 new com.edianyun.codeagentjava.application.dto.ExplainResponse("file.txt", "A text file"));
 
         // 同一会话中依次执行三条命令
-        shell.evaluate(() -> "chat --prompt 'Hello' --session multi");
-        shell.evaluate(() -> "generate --requirements 'test' --session multi --yes");
-        shell.evaluate(() -> "explain --target file.txt --session multi");
+        shellTestClient.sendCommand("chat --prompt 'Hello' --session multi");
+        shellTestClient.sendCommand("generate --requirements 'test' --session multi --yes");
+        shellTestClient.sendCommand("explain --target file.txt --session multi");
 
         // 验证所有命令均可正常执行（不抛异常）
     }

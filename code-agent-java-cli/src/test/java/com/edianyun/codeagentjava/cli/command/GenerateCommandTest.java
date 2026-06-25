@@ -9,14 +9,19 @@ import com.edianyun.codeagentjava.domain.repository.FileRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.shell.core.command.Shell;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.shell.core.command.CommandParser;
+import org.springframework.shell.core.command.CommandRegistry;
+import org.springframework.shell.test.ShellTestClient;
 
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
 
 /**
  * GenerateCommand Spring Shell 集成测试。
@@ -26,44 +31,64 @@ import static org.mockito.Mockito.when;
 class GenerateCommandTest {
 
     @Autowired
-    private Shell shell;
+    private ShellTestClient shellTestClient;
 
-    @MockBean
+    @Autowired
     private GenerateUseCase generateUseCase;
 
-    @MockBean
+    @Autowired
     private FileRepository fileRepository;
 
+    @TestConfiguration
+    static class TestConfig {
+        @Bean
+        @Primary
+        GenerateUseCase generateUseCase() {
+            return mock(GenerateUseCase.class);
+        }
+
+        @Bean
+        @Primary
+        FileRepository fileRepository() {
+            return mock(FileRepository.class);
+        }
+
+        @Bean
+        ShellTestClient shellTestClient(CommandParser commandParser, CommandRegistry commandRegistry) {
+            return new ShellTestClient(commandParser, commandRegistry);
+        }
+    }
+
     @Test
-    void shouldCallGenerateUseCaseWithRequirements() {
+    void shouldCallGenerateUseCaseWithRequirements() throws Exception {
         when(generateUseCase.generate(any())).thenReturn(
                 new GenerateResponse("task-1", "s1", List.of(
                         ContentFragment.of(new RelativePath("App.java"), "code", ContentType.CODE)
                 )));
 
-        shell.evaluate(() -> "generate --requirements 'Create a class' --yes");
+        shellTestClient.sendCommand("generate --requirements 'Create a class' --yes");
 
         verify(generateUseCase).generate(any());
     }
 
     @Test
-    void shouldSkipConfirmationWithYesFlag() {
+    void shouldSkipConfirmationWithYesFlag() throws Exception {
         when(generateUseCase.generate(any())).thenReturn(
                 new GenerateResponse("task-2", "s1", List.of(
                         ContentFragment.of(new RelativePath("test.txt"), "text", ContentType.TEXT)
                 )));
 
-        Object result = shell.evaluate(() -> "generate --requirements 'test' --yes");
+        shellTestClient.sendCommand("generate --requirements 'test' --yes");
 
         verify(generateUseCase).generate(any());
     }
 
     @Test
-    void shouldAcceptContentTypeParameter() {
+    void shouldAcceptContentTypeParameter() throws Exception {
         when(generateUseCase.generate(any())).thenReturn(
                 new GenerateResponse("task-3", "s1", List.of()));
 
-        shell.evaluate(() -> "generate --requirements 'test' --type JSON --yes");
+        shellTestClient.sendCommand("generate --requirements 'test' --type JSON --yes");
 
         verify(generateUseCase).generate(any());
     }

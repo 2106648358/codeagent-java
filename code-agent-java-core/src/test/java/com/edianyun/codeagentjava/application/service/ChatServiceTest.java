@@ -55,7 +55,7 @@ class ChatServiceTest {
     @Test
     void shouldCreateNewSessionWhenNoSessionIdProvided() {
         when(userIdentityResolver.resolve()).thenReturn(new UserIdentity(
-                UserId.anonymous(), TenantId.defaultTenant()));
+                UserId.anonymous(), TenantId.defaultTenant(), "test-machine"));
         when(localStorage.loadSession(any())).thenReturn(Optional.empty());
         when(agentOrchestrator.chat(any(), any()))
                 .thenReturn(Message.assistant("Hi!", null, null));
@@ -76,7 +76,7 @@ class ChatServiceTest {
                 TenantId.defaultTenant(), "Test Session");
 
         when(userIdentityResolver.resolve()).thenReturn(new UserIdentity(
-                UserId.anonymous(), TenantId.defaultTenant()));
+                UserId.anonymous(), TenantId.defaultTenant(), "test-machine"));
         when(localStorage.loadSession(existingId)).thenReturn(Optional.of(existingSession));
         when(agentOrchestrator.chat(any(), any()))
                 .thenReturn(Message.assistant("Response", null, null));
@@ -91,7 +91,7 @@ class ChatServiceTest {
 
     @Test
     void shouldResolveUserIdentityOnEachCall() {
-        UserIdentity identity = new UserIdentity(new UserId("dev-1"), TenantId.defaultTenant());
+        UserIdentity identity = new UserIdentity(new UserId("dev-1"), TenantId.defaultTenant(), "test-machine");
         when(userIdentityResolver.resolve()).thenReturn(identity);
         when(localStorage.loadSession(any())).thenReturn(Optional.empty());
         when(agentOrchestrator.chat(any(), any()))
@@ -105,7 +105,7 @@ class ChatServiceTest {
     @Test
     void shouldRecordTelemetryOnSuccess() {
         when(userIdentityResolver.resolve()).thenReturn(new UserIdentity(
-                UserId.anonymous(), TenantId.defaultTenant()));
+                UserId.anonymous(), TenantId.defaultTenant(), "test-machine"));
         when(localStorage.loadSession(any())).thenReturn(Optional.empty());
         when(agentOrchestrator.chat(any(), any()))
                 .thenReturn(Message.assistant("Done", null, null));
